@@ -7,6 +7,7 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, get_scheduler
 from safetensors.torch import save_model
+from accelerate import Accelerator
 
 
 MODELS_SAVE_FOLDER = "models"
@@ -15,8 +16,6 @@ CHECKPOINT = "bert-base-uncased"
 NUM_EPOCHS = 3
 BATCH_SIZE = 8
 AGG_EVERY_N_BATCHES = 100
-
-device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
 tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
 data_collator = DataCollatorWithPadding(tokenizer)
@@ -36,17 +35,21 @@ train_dataloader = DataLoader(tokenized_datasets["train"], batch_size=BATCH_SIZE
 val_dataloader = DataLoader(tokenized_datasets["validation"], batch_size=BATCH_SIZE, collate_fn=data_collator)
 test_dataloader = DataLoader(tokenized_datasets["test"], batch_size=BATCH_SIZE, collate_fn=data_collator)
 
+
 NUM_TRAINING_STEPS = NUM_EPOCHS * len(train_dataloader)
 
 model = AutoModelForSequenceClassification.from_pretrained(CHECKPOINT)
-model.to(device)
-
 optimizer = AdamW(model.parameters(), lr=5e-5)
 lr_scheduler = get_scheduler(
     "linear",
     optimizer=optimizer,
     num_warmup_steps=0,
     num_training_steps=NUM_TRAINING_STEPS
+)
+
+accelerator = Accelerator()
+train_dataloader, val_dataloader, model, optimizer = accelerator.prepare(
+    train_dataloader, val_dataloader, model, optimizer
 )
 
 
@@ -63,8 +66,6 @@ def train_loop():
 
 
     for i, batch in enumerate(train_dataloader, start=1):
-        batch = {k: v.to(device) for k, v in batch.items()}
-
         optimizer.zero_grad()
 
         outputs = model(**batch)
@@ -76,7 +77,7 @@ def train_loop():
         predictions = torch.argmax(logits, dim=-1)
         running_n_correct_predictions += (predictions == batch["labels"]).type(torch.int).sum().item()
 
-        loss.backward()
+        accelerator.backward(loss)
         optimizer.step()
         lr_scheduler.step()
 
@@ -111,8 +112,6 @@ def val_loop():
 
     with torch.no_grad():
         for batch in tqdm(val_dataloader):
-            batch = {k: v.to(device) for k, v in batch.items()}
-
             outputs = model(**batch)
 
             loss = outputs.loss
