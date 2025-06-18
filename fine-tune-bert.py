@@ -99,10 +99,13 @@ def train_loop():
     return avg_loss, accuracy
 
 
-def val_loop():
+def eval_loop(dataloader):
     """
-    We only calculate the mean validation loss and some metric (e.g. accuracy) over the whole epoch for the validation set.
+    We only calculate the mean validation loss and some metric (e.g. accuracy) over the whole epoch for the validation and test sets.
     No mean calculations are made for every N number of batches.
+
+    Args:
+        dataloader: This should be either a validation or a test dataloader.
     """
 
     model.eval()
@@ -110,48 +113,19 @@ def val_loop():
     running_n_correct_predictions = 0
 
     with torch.no_grad():
-        for batch in tqdm(val_dataloader):
+        for batch in tqdm(dataloader):
             batch = {k: v.to(device) for k, v in batch.items()}
 
             outputs = model(**batch)
-
-            loss = outputs.loss
-            running_loss += loss.item()
-
             logits = outputs.logits
             predictions = torch.argmax(logits, dim=-1)
+
+            running_loss += outputs.loss.item()
             running_n_correct_predictions += (predictions == batch["labels"]).type(torch.int).sum().item()
 
 
-    avg_loss = running_loss / len(val_dataloader)
-    accuracy = (running_n_correct_predictions / (len(val_dataloader) * BATCH_SIZE)) * 100
-
-    return avg_loss, accuracy
-
-
-def test_loop():
-    """
-    We only calculate the mean test loss and some metric (e.g. accuracy) over one epoch for the test set.
-    """
-
-    model.eval()
-    running_loss = 0.
-    running_n_correct_predictions = 0
-
-    with torch.no_grad():
-        for batch in tqdm(test_dataloader):
-            outputs = model(**batch)
-
-            loss = outputs.loss
-            running_loss += loss.item()
-
-            logits = outputs.logits
-            predictions = torch.argmax(logits, dim=-1)
-            running_n_correct_predictions += (predictions == batch["labels"]).type(torch.int).sum().item()
-
-
-    avg_loss = running_loss / len(test_dataloader)
-    accuracy = (running_n_correct_predictions / (len(test_dataloader) * BATCH_SIZE)) * 100
+    avg_loss = running_loss / len(dataloader)
+    accuracy = (running_n_correct_predictions / (len(dataloader) * BATCH_SIZE)) * 100
 
     return avg_loss, accuracy
 
@@ -167,7 +141,7 @@ for epoch in range(1, NUM_EPOCHS+1):
     avg_train_loss, train_accuracy = train_loop()
     print(f"Training Loss: {avg_train_loss} | Training Accuracy: {train_accuracy:.2f}%")
 
-    avg_val_loss, val_accuracy = val_loop()
+    avg_val_loss, val_accuracy = eval_loop(val_dataloader)
     print(f"Validation Loss: {avg_val_loss} | Validation Accuracy: {val_accuracy:.2f}%", end='\n\n')
 
     if avg_val_loss < best_val_loss:
@@ -178,5 +152,5 @@ for epoch in range(1, NUM_EPOCHS+1):
         # You may choose to save as safetensors
         # save_model(model, f"{model_path}.safetensors")
 
-avg_test_loss, test_accuracy = test_loop()
+avg_test_loss, test_accuracy = eval_loop(test_dataloader)
 print(f"Test Loss: {avg_test_loss} | Test Accuracy: {test_accuracy:.2f}%")
