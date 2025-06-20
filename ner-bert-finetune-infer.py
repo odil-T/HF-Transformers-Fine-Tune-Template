@@ -254,14 +254,14 @@ for epoch in range(1, NUM_EPOCHS + 1):
     if avg_val_loss < best_val_loss:
         best_val_loss = avg_val_loss
         model_path = f"{MODELS_SAVE_FOLDER}/model_bert_ner_epoch{epoch}_{timestamp}"
-        torch.save(model.state_dict(), model_path)
+        model.save_pretrained(model_path)
 
         # You may choose to push the model to hub during training
         # tokenizer.push_to_hub("bert-finetuned-ner", use_auth_token=HF_TOKEN)
         # model.push_to_hub("bert-finetuned-ner", use_auth_token=HF_TOKEN)
 
-        # You may choose to save as safetensors
-        # save_model(model, f"{model_path}.safetensors")
+        # You may choose to save the model as a PyTorch state dictionary. Note that the model architecture is not saved, just the weights.
+        # torch.save(model.state_dict(), model_path)
 
 avg_test_loss, test_metrics = eval_loop(test_dataloader)
 print("Test Metrics")
@@ -269,10 +269,17 @@ print("Loss: {} | Overall Precision: {} | Overall Recall: {} | Overall F1: {} | 
     avg_test_loss, test_metrics["overall_precision"], test_metrics["overall_recall"], test_metrics["overall_f1"],
     test_metrics["overall_accuracy"]))
 
-# Usage
+# USAGE -------------
+#
 # from transformers import pipeline
 #
+# FOR SAVED MODEL AND TOKENIZER STORED IN HF HUB
 # model_checkpoint = "odil111/bert-finetuned-ner"
 # token_classifier = pipeline("token-classification", checkpoint=model_checkpoint, aggregation_strategy="simple")
 #
+# FOR SAVED MODEL AND TOKENIZER STORED LOCALLY (the MODEL_PATH can be the model saved with `model.save_pretrained(MODEL_PATH)`)
+# token_classifier = pipeline("token-classification", model=MODEL_PATH, tokenizer="bert-base-cased", aggregation_strategy="simple")
 # token_classifier("Hi, my name is Mike and I work at Microsoft in Washington.")
+#
+# You can load the model after saving with `model.save_pretrained(PATH)` as:
+# model = AutoModelForTokenClassification.from_pretrained(PATH)
