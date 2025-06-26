@@ -130,7 +130,6 @@ def insert_random_mask(batch):
 
 
 remove_columns = downsampled_dataset["test"].column_names
-remove_columns.remove("word_ids")
 
 train_dataset = downsampled_dataset["train"].map(
     insert_random_mask,
