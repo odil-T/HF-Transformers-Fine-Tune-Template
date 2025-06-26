@@ -34,6 +34,7 @@ MODEL_CHECKPOINT = "bert-base-cased"
 assert HF_TOKEN, "Please add a HuggingFace token that has repository write permissions to the .env file."
 
 NUM_EPOCHS = 3
+BATCH_SIZE = 8
 AGG_EVERY_N_BATCHES = 100
 
 raw_dataset = load_dataset("conll2003", trust_remote_code=True)
@@ -86,19 +87,19 @@ train_dataloader = DataLoader(
     tokenized_dataset["train"],
     shuffle=True,
     collate_fn=data_collator,
-    batch_size=8,
+    batch_size=BATCH_SIZE,
 )
 
 val_dataloader = DataLoader(
     tokenized_dataset["validation"],
     collate_fn=data_collator,
-    batch_size=8,
+    batch_size=BATCH_SIZE,
 )
 
 test_dataloader = DataLoader(
     tokenized_dataset["test"],
     collate_fn=data_collator,
-    batch_size=8,
+    batch_size=BATCH_SIZE,
 )
 
 id2label = {i: label for i, label in enumerate(label_names)}
