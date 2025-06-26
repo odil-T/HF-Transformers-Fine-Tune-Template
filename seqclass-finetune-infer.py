@@ -1,16 +1,30 @@
-import datasets
+import os
 import torch
+
+from dotenv import load_dotenv
+from tqdm import tqdm
 from pathlib import Path
 from datetime import datetime
-from tqdm.auto import tqdm
-from torch.utils.data import DataLoader
+
 from torch.optim import AdamW
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, get_scheduler
-from safetensors.torch import save_model
+from torch.utils.data import DataLoader
+
+from datasets import load_dataset
+from transformers import (
+    AutoTokenizer,
+    DataCollatorWithPadding,
+    AutoModelForSequenceClassification,
+    get_scheduler
+)
 
 
+load_dotenv()
+
+HF_TOKEN = os.getenv("HF_TOKEN")
 MODELS_SAVE_FOLDER = "models"
-CHECKPOINT = "bert-base-uncased"
+MODEL_CHECKPOINT = "bert-base-uncased"
+
+assert HF_TOKEN, "Please add a HuggingFace token that has repository write permissions to the .env file."
 
 NUM_EPOCHS = 3
 BATCH_SIZE = 8
@@ -18,9 +32,9 @@ AGG_EVERY_N_BATCHES = 100
 
 device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
 
-tokenizer = AutoTokenizer.from_pretrained(CHECKPOINT)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_CHECKPOINT)
 data_collator = DataCollatorWithPadding(tokenizer)
-raw_datasets = datasets.load_dataset("glue", "mrpc")
+raw_datasets = load_dataset("glue", "mrpc")
 
 
 def preprocess(sample):
@@ -38,7 +52,7 @@ test_dataloader = DataLoader(tokenized_datasets["test"], batch_size=BATCH_SIZE, 
 
 NUM_TRAINING_STEPS = NUM_EPOCHS * len(train_dataloader)
 
-model = AutoModelForSequenceClassification.from_pretrained(CHECKPOINT)
+model = AutoModelForSequenceClassification.from_pretrained(MODEL_CHECKPOINT)
 model.to(device)
 
 optimizer = AdamW(model.parameters(), lr=5e-5)
